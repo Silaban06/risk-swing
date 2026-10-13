@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Risk Manager Swing IDX</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#111827;--mu:#6b7280;--bd:#e5e7eb;--ac:#0f766e;--rd:#dc2626;--gr:#16a34a;--am:#b45309;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1115;--card:#1a1d23;--tx:#f3f4f6;--mu:#9ca3af;--bd:#2d313a;--ac:#2dd4bf;--rd:#f87171;--gr:#4ade80;--am:#fbbf24}}
+:root[data-theme="dark"]{--bg:#0f1115;--card:#1a1d23;--tx:#f3f4f6;--mu:#9ca3af;--bd:#2d313a;--ac:#2dd4bf;--rd:#f87171;--gr:#4ade80;--am:#fbbf24}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.4}
+main{max-width:480px;margin:0 auto;padding:16px}
+h1{font-size:19px;margin:4px 0 2px}
+.sub{color:var(--mu);font-size:13px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mu);margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--mu);margin:8px 0 3px}
+input{width:100%;padding:11px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font-size:16px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)}
+.kv:last-child{border:0}
+.kv b{text-align:right}
+.big{font-size:26px;font-weight:700;color:var(--ac)}
+.rd{color:var(--rd)}.gr{color:var(--gr)}
+.warn{background:rgba(180,83,9,.12);color:var(--am);border-radius:10px;padding:9px 11px;margin-top:8px;font-size:13px}
+.note{color:var(--mu);font-size:12px;margin-top:8px}
+details summary{cursor:pointer;color:var(--ac);font-size:14px}
+</style>
+</head>
+<body>
+<main>
+<h1>Risk Manager Swing IDX</h1>
+<div class="sub">Hitung lot, risiko, dan batas harga sesuai aturan BEI.</div>
+
+<div class="card">
+<h2>Input</h2>
+<label>Modal / ekuitas (Rp)</label>
+<input id="cap" inputmode="numeric" value="50000000">
+<div class="row">
+<div><label>Risiko per trade (%)</label><input id="rp" inputmode="decimal" value="1"></div>
+<div><label>Maks. posisi (% modal)</label><input id="mp" inputmode="decimal" value="25"></div>
+</div>
+<div class="row">
+<div><label>Harga entry</label><input id="en" inputmode="numeric" value="1000"></div>
+<div><label>Stop loss</label><input id="sl" inputmode="numeric" value="950"></div>
+</div>
+<div class="row">
+<div><label>Target (TP)</label><input id="tp" inputmode="numeric" value="1150"></div>
+<div><label>Harga close kemarin</label><input id="pc" inputmode="numeric" value="1000"></div>
+</div>
+</div>
+
+<div class="card" id="res"></div>
+
+<div class="card">
+<details>
+<summary>Pengaturan biaya & aturan BEI</summary>
+<div class="row">
+<div><label>Fee beli (%)</label><input id="fb" inputmode="decimal" value="0.15"></div>
+<div><label>Fee jual (%)</label><input id="fs" inputmode="decimal" value="0.25"></div>
+</div>
+<div class="row">
+<div><label>ARA (%)</label><input id="ara" inputmode="decimal" value="25"></div>
+<div><label>ARB (%)</label><input id="arb" inputmode="decimal" value="15"></div>
+</div>
+<div class="note">1 lot = 100 lembar. ARA/ARB di sini diisi manual karena batasnya sering direvisi BEI/OJK dan berbeda menurut rentang harga (mis. ARA 35% untuk harga Rp50–200, 25% untuk Rp200–5.000, 20% di atas Rp5.000). Fee dan batas ARA/ARB mengikuti sekuritas &amp; aturan terbaru, silakan cek dan sesuaikan.</div>
+</details>
+</div>
+
+<div class="note">Alat bantu hitung, bukan saran investasi. Hasil belum memperhitungkan slippage dan gap harga saat pembukaan.</div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const IDS=['cap','rp','mp','en','sl','tp','pc','fb','fs','ara','arb'];
+try{const s=JSON.parse(localStorage.getItem('rsi')||'{}');IDS.forEach(i=>{if(s[i]!=null)$(i).value=s[i]})}catch(e){}
+const n=i=>parseFloat(String($(i).value).replace(/[^\d.,-]/g,'').replace(',','.'))||0;
+const rp=x=>'Rp'+Math.round(x).toLocaleString('id-ID');
+const tick=p=>p<200?1:p<500?2:p<2000?5:p<5000?10:25;
+const down=p=>{const t=tick(p);return Math.floor(p/t)*t};
+const up=p=>{const t=tick(p);return Math.ceil(p/t)*t};
+function render(){
+ try{localStorage.setItem('rsi',JSON.stringify(Object.fromEntries(IDS.map(i=>[i,$(i).value]))))}catch(e){}
+ const cap=n('cap'),en=n('en'),sl=n('sl'),tp=n('tp'),pc=n('pc');
+ const fb=n('fb')/100,fs=n('fs')/100,r=$('res');
+ if(!(cap>0&&en>0&&sl>0)||sl>=en){r.innerHTML='<h2>Hasil</h2><div class="warn">Isi modal, entry, dan stop loss (stop loss harus di bawah entry untuk posisi beli).</div>';return}
+ const riskIdr=cap*n('rp')/100;
+ const perShare=(en-sl)+en*fb+sl*fs;
+ let lot=Math.floor(riskIdr/perShare/100);
+ const maxLot=Math.floor(cap*n('mp')/100/(en*100*(1+fb)));
+ const capped=lot>maxLot; lot=Math.max(0,Math.min(lot,maxLot));
+ const sh=lot*100,cost=sh*en*(1+fb);
+ const lossReal=sh*perShare;
+ const w=[];
+ const ara=pc>0?down(pc*(1+n('ara')/100)):0, arb=pc>0?up(pc*(1-n('arb')/100)):0;
+ if(en!==Math.round(en/tick(en))*tick(en))w.push('Entry tidak sesuai fraksi harga (tick Rp'+tick(en)+'). Terdekat: '+rp(down(en))+' / '+rp(up(en))+'.');
+ if(sl!==Math.round(sl/tick(sl))*tick(sl))w.push('Stop loss tidak sesuai fraksi (tick Rp'+tick(sl)+').');
+ if(pc>0&&sl<arb)w.push('Stop loss berada di bawah batas ARB ('+rp(arb)+'): tidak mungkin tereksekusi dalam sehari.');
+ if(pc>0&&en>ara)w.push('Entry di atas batas ARA hari ini.');
+ if(capped)w.push('Ukuran dibatasi maks. posisi '+n('mp')+'% modal, bukan oleh risiko.');
+ if(lot===0)w.push('Risiko terlalu kecil untuk 1 lot. Longgarkan SL atau naikkan risiko/modal.');
+ let rr='-',prof='-',net='-';
+ if(tp>en){const rew=(tp-en)-en*fb-tp*fs;rr=(rew/perShare).toFixed(2)+' : 1';prof=sh*rew;net=prof}
+ const rrv=parseFloat(rr);
+ if(tp>en&&rrv<2)w.push('R:R di bawah 2:1. Swing trading umumnya mengincar minimal 2:1.');
+ r.innerHTML='<h2>Hasil</h2><div style="color:var(--mu);font-size:13px">Ukuran posisi</div><div class="big">'+lot+' lot <span style="font-size:14px;color:var(--mu);font-weight:400">('+sh.toLocaleString('id-ID')+' lembar)</span></div>'
+ +kv('Nilai beli (+fee)',rp(cost))+kv('% dari modal',(cost/cap*100).toFixed(1)+'%')
+ +kv('Rugi bila kena SL (+fee)','<span class="rd">-'+rp(lossReal)+'</span>')
+ +kv('Laba bila kena TP (-fee)',typeof net==='number'?'<span class="gr">+'+rp(net)+'</span>':'-')
+ +kv('Risk : Reward',rr)
+ +kv('Jarak SL',((en-sl)/en*100).toFixed(2)+'%')
+ +(pc>0?kv('Batas ARA / ARB',rp(ara)+' / '+rp(arb)):'')
+ +w.map(x=>'<div class="warn">'+x+'</div>').join('');
+}
+const kv=(a,b)=>'<div class="kv"><span>'+a+'</span><b>'+b+'</b></div>';
+IDS.forEach(i=>$(i).addEventListener('input',render));render();
+</script>
+</body>
+</html>
